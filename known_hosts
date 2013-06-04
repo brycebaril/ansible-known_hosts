@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# From http://jpmens.net/2012/07/05/shell-scripts-as-ansible-modules/
+eval $(sed -e "s/\s?\([^=]+\)\s?=\s?\(\x22\([^\x22]+\)\x22|\x27\([^\x27]+\)\x27|\(\S+\)\)\s?/\1='\2'/p" $1)
+
+# host
+# port
+# state present|absent
+# file
+
+if [ -z "$host" ]
+then
+  echo "{\"failed\": true, \"msg\": \"host is required, e.g. github.com\"}"
+  exit 1
+fi
+
+# default state=present
+if [ -z "$state" ]
+then
+  state="present"
+fi
+
+if [ "$state" != "present" -a "$state" != "absent" ]
+then
+  echo "{\"failed\": true, \"msg\": \"state must be 'present' or 'absent'\"}"
+  exit 1
+fi
+
+# default port = 22
+if [ -z "$port" ]
+then
+  port=22
+fi
+
+# default file = $HOME/.ssh/known_hosts
+if [ -z "$file" ]
+then
+  file=$HOME/.ssh/known_hosts
+fi
+
+if [ ! -e "$file" ]
+then
+  mkdir -p $(dirname $file)
+  touch $file
+fi
+
+ip=$(dig $host +short)
+
+keygen_name=$host
+if [ -z "$port" -a $port -ne 22 ]
+then
+  keygen_name="[$host]:$port"
+fi
+
+have_host=$(ssh-keygen -F $keygen_name -f $file)
+have_ip=$(ssh-keygen -F $ip -f $file)
+have="$have_host$have_ip"
+
+if [ -n "$have" -a $state == "absent" ]
+then
+  for h in $keygen_name $ip
+  do
+    ssh-keygen -R $h -f $file &> /dev/null
+    if [ ! $? -eq 0 ]
+    then
+      echo "{\"failed\": true, \"msg\": \"Failed to remove host from known_hosts file\"}"
+      exit 1
+    fi
+  done
+  echo "{\"changed\": true}"
+  exit
+elif [ -z "$have" -a $state == "present" ]
+then
+  for h in $host $ip
+  do
+    ssh-keyscan -p $port -H $h 2> /dev/null >> $file
+    if [ ! $? -eq 0 ]
+    then
+      echo "{\"failed\": true, \"msg\": \"Failed to add host to known_hosts file\"}"
+      exit 1
+    fi
+  done
+  echo "{\"changed\": true}"
+  exit
+fi
+
+echo "{\"changed\": false}"
+exit
