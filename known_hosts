@@ -44,6 +44,11 @@ then
   touch $file
 fi
 
+if [ -z "$owner" ];
+then
+  owner=$(whoami)
+fi
+
 ip=$(dig $host +short)
 
 keygen_name=$host
@@ -52,15 +57,15 @@ then
   keygen_name="[$host]:$port"
 fi
 
-have_host=$(ssh-keygen -F $keygen_name -f $file)
-have_ip=$(ssh-keygen -F $ip -f $file)
+have_host=$(su - $owner -c "ssh-keygen -F $keygen_name -f $file")
+have_ip=$(su - $owner -c "ssh-keygen -F $ip -f $file")
 have="$have_host$have_ip"
 
 if [ -n "$have" -a $state == "absent" ]
 then
   for h in $keygen_name $ip
   do
-    ssh-keygen -R $h -f $file &> /dev/null
+    su - $owner -c "ssh-keygen -R $h -f $file &> /dev/null"
     if [ ! $? -eq 0 ]
     then
       echo "{\"failed\": true, \"msg\": \"Failed to remove host from known_hosts file\"}"
@@ -73,7 +78,7 @@ elif [ -z "$have" -a $state == "present" ]
 then
   for h in $host $ip
   do
-    ssh-keyscan -p $port -H $h 2> /dev/null >> $file
+    su - $owner -c "ssh-keyscan -p $port -H $h 2> /dev/null >> $file"
     if [ ! $? -eq 0 ]
     then
       echo "{\"failed\": true, \"msg\": \"Failed to add host to known_hosts file\"}"
