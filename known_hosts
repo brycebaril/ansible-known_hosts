@@ -49,7 +49,7 @@ then
   owner=$(whoami)
 fi
 
-ip=$(dig $host +short)
+ip=$(getent hosts $host | cut -f 1 -d ' ')
 
 keygen_name=$host
 if [ -z "$port" -a $port -ne 22 ]
