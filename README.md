@@ -39,6 +39,11 @@ state
 
 'present' to add the host, 'absent' to remove it. Defaults to 'present'
 
+owner
+-----
+
+Username of the owner of 'known_hosts' file, usually useful in case you specified custom filepath in 'file' attribute.
+
 NOTE
 ====
 
